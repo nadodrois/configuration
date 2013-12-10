@@ -26,6 +26,10 @@ class CallbackModule(object):
                 sys.exit(1)
             self.name = os.environ['SQS_NAME']
             self.queue  = self.sqs.create_queue(self.name)
+            if 'SQS_MSG_PREFIX' in os.environ:
+                self.prefix = os.environ['SQS_MSG_PREFIX']
+            else:
+                self.prefix = ''
         else:
             self.enable_sqs = False
 
@@ -100,5 +104,5 @@ class CallbackModule(object):
 
     def _send_queue_message(self, message):
         if self.enable_sqs:
-            self.sqs.send_message(self.queue, message.encode('utf-8'))
+            self.sqs.send_message(self.queue, self.prefix + ': ' + message.encode('utf-8'))
 

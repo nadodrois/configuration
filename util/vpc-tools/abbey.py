@@ -3,11 +3,14 @@
 import sys
 from argparse import ArgumentParser
 import subprocess
+import time
 
 try:
     import boto.ec2
+    import boto.sqs
     from boto.vpc import VPCConnection
     from boto.exception import EC2ResponseError
+    from boto.exception import NoAuthHandlerFound
 except ImportError:
     print "boto required for script"
     sys.exit(1)
@@ -40,7 +43,9 @@ def parse_args():
                         help="defaults to DEPLOYMENT-ENVIRONMENT",
                         metavar="STACK_NAME",
                         required=False)
-    parser.add_argument('-p', '--play', metavar="PLAY", required=True)
+    parser.add_argument('-p', '--play',
+                        help='play name without the yml extension',
+                        metavar="PLAY", required=True)
     parser.add_argument('-d', '--deployment', metavar="DEPLOYMENT",
                         required=True)
     parser.add_argument('-e', '--environment', metavar="ENVIRONMENT",
@@ -50,10 +55,10 @@ def parse_args():
     parser.add_argument('-a', '--application', required=False,
                         help="Application for subnet, defaults to admin",
                         default="admin")
-    parser.add_argument('--configuration-hash', required=False,
+    parser.add_argument('--configuration-version', required=False,
                         help="configuration repo version",
                         default="master")
-    parser.add_argument('--configuration-secure-hash', required=False,
+    parser.add_argument('--configuration-secure-version', required=False,
                         help="configuration-secure repo version",
                         default="master")
     parser.add_argument('-j', '--jenkins-build', required=False,
@@ -62,7 +67,8 @@ def parse_args():
                         help="ami to use as a base ami",
                         default="ami-d0f89fb9")
     parser.add_argument('-i', '--identity', required=False,
-                        help="path to identity file for pulling down configuration-secure")
+                        help="path to identity file for pulling down configuration-secure",
+                        default=None)
     parser.add_argument('-r', '--region', required=False,
                         default="us-east-1",
                         help="aws region")
@@ -74,15 +80,25 @@ def parse_args():
                         help="instance type to launch")
     parser.add_argument("--security-group", required=False,
                         default="abbey", help="Security group to use")
+    parser.add_argument("--role-name", required=False,
+                        default="abbey", help="IAM role name to use (must exist)")
     return parser.parse_args()
 
 
 def main():
 
     security_group_id = None
+    queue_name = "abbey-{}-{}".format(args.environment, args.deployment)
 
-    ec2 = boto.ec2.connect_to_region(args.region)
+    try:
+        sqs = boto.sqs.connect_to_region(args.region)
+        ec2 = boto.ec2.connect_to_region(args.region)
+    except NoAuthHandlerFound:
+        print 'You must be able to connect to sqs and ec2 to use this script'
+        sys.exit(1)
+
     grp_details = ec2.get_all_security_groups()
+
     for grp in grp_details:
         if grp.name == args.security_group:
             security_group_id = grp.id
@@ -92,7 +108,8 @@ def main():
         sys.exit(1)
 
     print "{:22} {:22}".format("stack_name", stack_name)
-    for value in ['region', 'base_ami', 'keypair', 'instance_type', 'security_group']:
+    print "{:22} {:22}".format("queue_name", queue_name)
+    for value in ['region', 'base_ami', 'keypair', 'instance_type', 'security_group', 'role_name']:
         print "{:22} {:22}".format(value, getattr(args, value))
 
     vpc = VPCConnection()
@@ -109,65 +126,121 @@ def main():
 
     print "{:22} {:22}".format("subnet_id", subnet_id)
 
+    if args.identity:
+        config_secure = 'true'
+        with open(args.identity) as f:
+            identity_file = f.read()
+    else:
+        config_secure = 'false'
+        identity_file = "dummy"
+
+    # create the queue we will be listening on
+    # in case it doesn't exist
+    sqs_queue = sqs.create_queue(queue_name)
+
+    user_data = """
+#!/usr/bin/bash
+set -x
+set -e
+
+base_dir="/var/tmp/edx-cfg"
+extra_vars="$base_dir/extra-vars-$$.yml"
+secure_identity="$base_dir/secure-identity"
+git_ssh="$base_dir/git_ssh.sh"
+configuration_version="{configuration_version}"
+configuration_secure_version="{configuration_secure_version}"
+environment="{environment}"
+deployment="{deployment}"
+play="{play}"
+config_secure={config_secure}
+
+if $config_secure; then
+    git_cmd="env GIT_SSH=$git_ssh git"
+else
+    git_cmd="git"
+fi
+
+ANSIBLE_ENABLE_SQS=true
+SQS_NAME={queue_name}
+SQS_REGION=us-east-1
+SQS_MSG_PREFIX="[ $environment-$deployment $play ]"
+
+export ANSIBLE_ENABLE_SQS SQS_NAME SQS_REGION
+
+if [[ ! -x /usr/bin/git || ! -x /usr/bin/pip ]]; then
+    echo "Installing pkg dependencies"
+    /usr/bin/apt-get update
+    /usr/bin/apt-get install -y git python-pip python-apt git-core build-essential python-dev libxml2-dev libxslt-dev curl --force-yes
+fi
+
+
+rm -rf $base_dir
+mkdir -p $base_dir
+cd $base_dir
+
+cat << EOF > $git_ssh
+#!/bin/sh
+exec /usr/bin/ssh -o StrictHostKeyChecking=no -i "$secure_identity" "\$@"
+EOF
+
+chmod 755 $git_ssh
+
+if $config_secure; then
+    cat << EOF > $secure_identity
+{identity_file}
+EOF
+fi
+
+cat << EOF >> $extra_vars
+---
+secure_vars: "$base_dir/configuration-secure/ansible/vars/$environment/$environment-$deployment.yml"
+edx_platform_commit: master
+EOF
+
+chmod 400 $secure_identity
+
+$git_cmd clone -b $configuration_version https://github.com/edx/configuration
+
+if $config_secure; then
+    $git_cmd clone -b $configuration_secure_version git@github.com:edx/configuration-secure
+fi
+
+cd $base_dir/configuration
+sudo pip install -r requirements.txt
+
+cd $base_dir/configuration/playbooks/edx-east
+
+ansible-playbook -c local -i "localhost," $play.yml -e@$extra_vars
+
+rm -rf $base_dir
+
+    """.format(
+            configuration_version=args.configuration_version,
+            configuration_secure_version=args.configuration_secure_version,
+            environment=args.environment,
+            deployment=args.deployment,
+            play=args.play,
+            config_secure=config_secure,
+            identity_file=identity_file,
+            queue_name=queue_name)
+
     ec2_args = {
         'security_group_ids': [security_group_id],
         'subnet_id': subnet_id,
         'key_name': args.keypair,
         'image_id': args.base_ami,
         'instance_type': args.instance_type,
+        'instance_profile_name': args.role_name,
+        'user_data': user_data.encode('base64'),
     }
 
     res = ec2.run_instances(**ec2_args)
 
-    user_data = """
-
-    base_dir="/var/tmp/edx-cfg"
-    extra_vars="/var/tmp/extra-vars-$$.yml"
-    secure_identity="/var/tmp/config-secure-git-ident"
-
-    cat << EOF >> /var/tmp/git_ssh.sh
-    #!/bin/sh
-    exec /usr/bin/ssh -o StrictHostKeyChecking=no -i "$secure_identity" "\$@"
-    EOF
-
-    cat << EOF >> $secure_identity
-    {secure_identity}
-    EOF
-
-    mkdir -p $base_dir
-    cd /var/tmp/$base_dir
-    if [[ -d $base_dir/configuration/.git ]]; then
-        cd $base_dir/configuration
-        git reset --hard {configuration_hash }
-    else
-        cd $base_dir
-        git clone -b {configuration_hash} https://github.com/edx/configuration
-    fi
-
-    if [[ -d $base_dir/configuration-secure/.git ]]; then
-        cd $base_dir/configuration-secure
-        git reset --hard {configuration_secure_hash}
-    else
-        cd $base_dir
-        git clone -b {configuration_secure_hash} https://github.com/edx/configuration-secure
-    fi
-
-    cd $base_dir/configuration
-    sudo pip install -r requirements.txt
-
-    cd $base_dir/configuration/playbooks/edx-east
-    cat << EOF >> $extra_vars
-    {extra_vars}
-    EOF
-
-
-    ansible-playbook -c local {play} -e@/var/tmp/extra-vars-$$
-
-    rm -f $extra_vars
-    """
-
-
-
+    while True:
+        messages = sqs_queue.get_messages()
+        if len(messages) > 0:
+            print "\n".join(messages)
+        time.sleep(1)
 
 if __name__ == '__main__':
 
