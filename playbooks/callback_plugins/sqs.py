@@ -7,25 +7,29 @@ except ImportError:
     print "Boto is required for the sqs_notify callback plugin"
     raise
 
+
 class CallbackModule(object):
     def __init__(self):
         print "Init"
         if 'ANSIBLE_ENABLE_SQS' in os.environ:
             self.enable_sqs = True
             if not 'SQS_REGION' in os.environ:
-                print 'ANSIBLE_ENABLE_SQS enabled but SQS_REGION not defined in environment'
+                print 'ANSIBLE_ENABLE_SQS enabled but SQS_REGION ' \
+                      'not defined in environment'
                 sys.exit(1)
-            self.region=os.environ['SQS_REGION']
+            self.region = os.environ['SQS_REGION']
             try:
                 self.sqs = boto.sqs.connect_to_region(self.region)
             except NoAuthHandlerFound:
-                print 'ANSIBLE_ENABLE_SQS enabled but cannot connect to AWS due invalid credentials'
+                print 'ANSIBLE_ENABLE_SQS enabled but cannot connect ' \
+                      'to AWS due invalid credentials'
                 sys.exit(1)
             if not 'SQS_NAME' in os.environ:
-                print 'ANSIBLE_ENABLE_SQS enabled but SQS_NAME not defined in environment'
+                print 'ANSIBLE_ENABLE_SQS enabled but SQS_NAME not ' \
+                      'defined in environment'
                 sys.exit(1)
             self.name = os.environ['SQS_NAME']
-            self.queue  = self.sqs.create_queue(self.name)
+            self.queue = self.sqs.create_queue(self.name)
             if 'SQS_MSG_PREFIX' in os.environ:
                 self.prefix = os.environ['SQS_MSG_PREFIX']
             else:
@@ -104,5 +108,5 @@ class CallbackModule(object):
 
     def _send_queue_message(self, message):
         if self.enable_sqs:
-            self.sqs.send_message(self.queue, self.prefix + ': ' + message.encode('utf-8'))
-
+            self.sqs.send_message(self.queue, self.prefix +
+                                  ': ' + message.encode('utf-8'))
