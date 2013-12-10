@@ -144,7 +144,7 @@ def main():
     sqs_queue = sqs.create_queue(queue_name)
 
     user_data = """
-#!/usr/bin/bash
+#!/bin/bash
 set -x
 set -e
 exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
