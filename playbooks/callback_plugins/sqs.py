@@ -46,8 +46,7 @@ class CallbackModule(object):
         pass
 
     def runner_on_ok(self, host, res):
-        message = "COMPLETED: {}".format(host)
-        self._send_queue_message(message)
+        pass
 
     def runner_on_error(self, host, msg):
         message = "ERROR: {} : {}".format(host, msg)
