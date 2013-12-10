@@ -9,11 +9,11 @@ try:
     import boto.ec2
     import boto.sqs
     from boto.vpc import VPCConnection
-    from boto.exception import EC2ResponseError
     from boto.exception import NoAuthHandlerFound
 except ImportError:
     print "boto required for script"
     sys.exit(1)
+
 
 def run_cmd(cmd):
     if args.noop:
@@ -67,7 +67,8 @@ def parse_args():
                         help="ami to use as a base ami",
                         default="ami-d0f89fb9")
     parser.add_argument('-i', '--identity', required=False,
-                        help="path to identity file for pulling down configuration-secure",
+                        help="path to identity file for pulling "
+                             "down configuration-secure",
                         default=None)
     parser.add_argument('-r', '--region', required=False,
                         default="us-east-1",
@@ -81,7 +82,8 @@ def parse_args():
     parser.add_argument("--security-group", required=False,
                         default="abbey", help="Security group to use")
     parser.add_argument("--role-name", required=False,
-                        default="abbey", help="IAM role name to use (must exist)")
+                        default="abbey",
+                        help="IAM role name to use (must exist)")
     return parser.parse_args()
 
 
@@ -104,12 +106,15 @@ def main():
             security_group_id = grp.id
             break
     if not security_group_id:
-        print "Unable to lookup id for security group {}".format(args.security_group)
+        print "Unable to lookup id for security group {}".format(
+            args.security_group)
         sys.exit(1)
 
     print "{:22} {:22}".format("stack_name", stack_name)
     print "{:22} {:22}".format("queue_name", queue_name)
-    for value in ['region', 'base_ami', 'keypair', 'instance_type', 'security_group', 'role_name']:
+    for value in ['region', 'base_ami', 'keypair',
+                  'instance_type', 'security_group',
+                  'role_name']:
         print "{:22} {:22}".format(value, getattr(args, value))
 
     vpc = VPCConnection()
@@ -215,14 +220,14 @@ ansible-playbook -c local -i "localhost," $play.yml -e@$extra_vars
 rm -rf $base_dir
 
     """.format(
-            configuration_version=args.configuration_version,
-            configuration_secure_version=args.configuration_secure_version,
-            environment=args.environment,
-            deployment=args.deployment,
-            play=args.play,
-            config_secure=config_secure,
-            identity_file=identity_file,
-            queue_name=queue_name)
+                configuration_version=args.configuration_version,
+                configuration_secure_version=args.configuration_secure_version,
+                environment=args.environment,
+                deployment=args.deployment,
+                play=args.play,
+                config_secure=config_secure,
+                identity_file=identity_file,
+                queue_name=queue_name)
 
     ec2_args = {
         'security_group_ids': [security_group_id],
