@@ -147,7 +147,7 @@ def main():
 #!/usr/bin/bash
 set -x
 set -e
-
+exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
 base_dir="/var/tmp/edx-cfg"
 extra_vars="$base_dir/extra-vars-$$.yml"
 secure_identity="$base_dir/secure-identity"
@@ -170,7 +170,7 @@ SQS_NAME={queue_name}
 SQS_REGION=us-east-1
 SQS_MSG_PREFIX="[ $environment-$deployment $play ]"
 
-export ANSIBLE_ENABLE_SQS SQS_NAME SQS_REGION
+export ANSIBLE_ENABLE_SQS SQS_NAME SQS_REGION SQS_MSG_PREFIX
 
 if [[ ! -x /usr/bin/git || ! -x /usr/bin/pip ]]; then
     echo "Installing pkg dependencies"
@@ -236,15 +236,16 @@ rm -rf $base_dir
         'image_id': args.base_ami,
         'instance_type': args.instance_type,
         'instance_profile_name': args.role_name,
-        'user_data': user_data.encode('base64'),
+        'user_data': user_data,
     }
 
     res = ec2.run_instances(**ec2_args)
 
     while True:
-        messages = sqs_queue.get_messages()
-        if len(messages) > 0:
-            print "\n".join(messages)
+        while sqs_queue.count() > 0:
+            messages = sqs_queue.get_messages()
+            for message in messages:
+                print message.get_body()
         time.sleep(1)
 
 if __name__ == '__main__':
