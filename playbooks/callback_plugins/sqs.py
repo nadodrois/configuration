@@ -38,19 +38,22 @@ class CallbackModule(object):
             self.enable_sqs = False
 
     def on_any(self, *args, **kwargs):
+        message = "args={} kwargs={}".format(args, kwargs)
+        self._send_queue_message(message)
         pass
 
     def runner_on_failed(self, host, res, ignore_errors=False):
-        message = "FAILURE: {}".format(host)
-        self._send_queue_message(message)
         pass
+        #message = "FAILURE: {}".format(host)
+        #self._send_queue_message(message)
 
     def runner_on_ok(self, host, res):
         pass
 
     def runner_on_error(self, host, msg):
-        message = "ERROR: {} : {}".format(host, msg)
-        self._send_queue_message(message)
+        pass
+        #message = "ERROR: {} : {}".format(host, msg)
+        #self._send_queue_message(message)
 
     def runner_on_skipped(self, host, item=None):
         pass
@@ -74,9 +77,9 @@ class CallbackModule(object):
         pass
 
     def playbook_on_notify(self, host, handler):
-        message = "NOTIFIED: {} ".format(handler)
-        self._send_queue_message(message)
         pass
+        #message = "NOTIFIED: {} ".format(handler)
+        #self._send_queue_message(message)
 
     def playbook_on_no_hosts_matched(self):
         pass
@@ -85,8 +88,9 @@ class CallbackModule(object):
         pass
 
     def playbook_on_task_start(self, name, is_conditional):
-        message = "TASK: {}".format(name)
-        self._send_queue_message(message)
+        pass
+        #message = "TASK: {}".format(name)
+        #self._send_queue_message(message)
 
     def playbook_on_setup(self):
         pass
@@ -98,14 +102,17 @@ class CallbackModule(object):
         pass
 
     def playbook_on_play_start(self, pattern):
-        message = "Starting play {}".format(pattern)
-        self._send_queue_message(message)
+        pass
+        #message = "Starting play {}".format(pattern)
+        #self._send_queue_message(message)
 
     def playbook_on_stats(self, stats):
-        message = "Completed play".format(self.play)
-        self._send_queue_message(message)
+        pass
+        #message = "Completed play".format(self.play)
+        #self._send_queue_message(message)
 
     def _send_queue_message(self, message):
+        pass
         if self.enable_sqs:
             self.sqs.send_message(self.queue, self.prefix +
-                                  message.encode('utf-8'))
+                                  message.encode('ascii'))

@@ -4,6 +4,7 @@ import sys
 from argparse import ArgumentParser
 import subprocess
 import time
+from base64 import encodestring
 
 try:
     import boto.ec2
@@ -65,7 +66,7 @@ def parse_args():
                         help="jenkins build number to update")
     parser.add_argument('-b', '--base-ami', required=False,
                         help="ami to use as a base ami",
-                        default="ami-d0f89fb9")
+                        default="ami-0568456c")
     parser.add_argument('-i', '--identity', required=False,
                         help="path to identity file for pulling "
                              "down configuration-secure",
@@ -143,8 +144,7 @@ def main():
     # in case it doesn't exist
     sqs_queue = sqs.create_queue(queue_name)
 
-    user_data = """
-#!/bin/bash
+    user_data = """#!/bin/bash
 set -x
 set -e
 exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
