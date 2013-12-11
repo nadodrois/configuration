@@ -38,14 +38,14 @@ class CallbackModule(object):
             self.enable_sqs = False
 
     def on_any(self, *args, **kwargs):
-        message = "args={} kwargs={}".format(args, kwargs)
-        self._send_queue_message(message)
         pass
+        #message = "args={} kwargs={}".format(args, kwargs)
+        #self._send_queue_message(message)
 
     def runner_on_failed(self, host, res, ignore_errors=False):
         pass
-        #message = "FAILURE: {}".format(host)
-        #self._send_queue_message(message)
+        message = "FAILURE: {}".format(host)
+        self._send_queue_message(message)
 
     def runner_on_ok(self, host, res):
         pass
@@ -89,8 +89,8 @@ class CallbackModule(object):
 
     def playbook_on_task_start(self, name, is_conditional):
         pass
-        #message = "TASK: {}".format(name)
-        #self._send_queue_message(message)
+        message = "TASK: {}".format(name)
+        self._send_queue_message(message)
 
     def playbook_on_setup(self):
         pass
@@ -103,8 +103,8 @@ class CallbackModule(object):
 
     def playbook_on_play_start(self, pattern):
         pass
-        #message = "Starting play {}".format(pattern)
-        #self._send_queue_message(message)
+        message = "Starting play {}".format(pattern)
+        self._send_queue_message(message)
 
     def playbook_on_stats(self, stats):
         pass
@@ -115,4 +115,4 @@ class CallbackModule(object):
         pass
         if self.enable_sqs:
             self.sqs.send_message(self.queue, self.prefix +
-                                  message.encode('ascii'))
+                                  message.encode('utf-8'))

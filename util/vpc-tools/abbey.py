@@ -11,6 +11,7 @@ try:
     import boto.sqs
     from boto.vpc import VPCConnection
     from boto.exception import NoAuthHandlerFound
+    from boto.sqs.message import RawMessage
 except ImportError:
     print "boto required for script"
     sys.exit(1)
@@ -240,13 +241,14 @@ rm -rf $base_dir
     }
 
     res = ec2.run_instances(**ec2_args)
-
+    sqs_queue.set_message_class(RawMessage)
     while True:
-        while sqs_queue.count() > 0:
-            messages = sqs_queue.get_messages()
-            for message in messages:
-                print message.get_body()
-        time.sleep(1)
+        messages = sqs_queue.get_messages()
+        if not messages:
+            time.sleep(1)
+        for message in messages:
+            print message.get_body()
+            sqs_queue.delete_message(message)
 
 if __name__ == '__main__':
 
