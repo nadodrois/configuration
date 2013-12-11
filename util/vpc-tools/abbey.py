@@ -159,6 +159,9 @@ environment="{environment}"
 deployment="{deployment}"
 play="{play}"
 config_secure={config_secure}
+instance_id=$(curl http://169.254.169.254/latest/meta-data/instance-id 2>/dev/null)
+instance_ip=$(curl http://169.254.169.254/latest/meta-data/local-ipv4 2>/dev/null)
+instance_type=$(curl http://169.254.169.254/latest/meta-data/instance-type 2>/dev/null)
 
 if $config_secure; then
     git_cmd="env GIT_SSH=$git_ssh git"
@@ -169,7 +172,7 @@ fi
 ANSIBLE_ENABLE_SQS=true
 SQS_NAME={queue_name}
 SQS_REGION=us-east-1
-SQS_MSG_PREFIX="[ $environment-$deployment $play ]"
+SQS_MSG_PREFIX="[ $instance_id $instance_ip $environment-$deployment $play ]"
 PYTHONUNBUFFERED=1
 
 # environment for ansible
