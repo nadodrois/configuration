@@ -41,8 +41,9 @@ class CallbackModule(object):
         pass
 
     def runner_on_failed(self, host, res, ignore_errors=False):
-        message = "FAILURE: {}".format(host)
-        self._send_queue_message(message)
+        if not ignore_errors:
+            message = "FAILURE: {}".format(host)
+            self._send_queue_message(message)
 
     def runner_on_ok(self, host, res):
         pass
@@ -73,8 +74,6 @@ class CallbackModule(object):
 
     def playbook_on_notify(self, host, handler):
         pass
-        #message = "NOTIFIED: {} ".format(handler)
-        #self._send_queue_message(message)
 
     def playbook_on_no_hosts_matched(self):
         pass
@@ -102,8 +101,6 @@ class CallbackModule(object):
 
     def playbook_on_stats(self, stats):
         pass
-        #message = "Completed play".format(self.play)
-        #self._send_queue_message(message)
 
     def _send_queue_message(self, message):
         if self.enable_sqs:
