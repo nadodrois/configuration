@@ -39,11 +39,8 @@ class CallbackModule(object):
 
     def on_any(self, *args, **kwargs):
         pass
-        #message = "args={} kwargs={}".format(args, kwargs)
-        #self._send_queue_message(message)
 
     def runner_on_failed(self, host, res, ignore_errors=False):
-        pass
         message = "FAILURE: {}".format(host)
         self._send_queue_message(message)
 
@@ -52,8 +49,6 @@ class CallbackModule(object):
 
     def runner_on_error(self, host, msg):
         pass
-        #message = "ERROR: {} : {}".format(host, msg)
-        #self._send_queue_message(message)
 
     def runner_on_skipped(self, host, item=None):
         pass
@@ -88,7 +83,6 @@ class CallbackModule(object):
         pass
 
     def playbook_on_task_start(self, name, is_conditional):
-        pass
         message = "TASK: {}".format(name)
         self._send_queue_message(message)
 
@@ -112,7 +106,6 @@ class CallbackModule(object):
         #self._send_queue_message(message)
 
     def _send_queue_message(self, message):
-        pass
         if self.enable_sqs:
             self.sqs.send_message(self.queue, self.prefix +
                                   message.encode('utf-8'))

@@ -170,8 +170,10 @@ ANSIBLE_ENABLE_SQS=true
 SQS_NAME={queue_name}
 SQS_REGION=us-east-1
 SQS_MSG_PREFIX="[ $environment-$deployment $play ]"
+PYTHONUNBUFFERED=1
 
-export ANSIBLE_ENABLE_SQS SQS_NAME SQS_REGION SQS_MSG_PREFIX
+# environment for ansible
+export ANSIBLE_ENABLE_SQS SQS_NAME SQS_REGION SQS_MSG_PREFIX PYTHONUNBUFFERED
 
 if [[ ! -x /usr/bin/git || ! -x /usr/bin/pip ]]; then
     echo "Installing pkg dependencies"
@@ -216,7 +218,7 @@ sudo pip install -r requirements.txt
 
 cd $base_dir/configuration/playbooks/edx-east
 
-ansible-playbook -c local -i "localhost," $play.yml -e@$extra_vars
+ansible-playbook -vvvv -c local -i "localhost," $play.yml -e@$extra_vars
 
 rm -rf $base_dir
 
@@ -242,6 +244,7 @@ rm -rf $base_dir
 
     res = ec2.run_instances(**ec2_args)
     sqs_queue.set_message_class(RawMessage)
+
     while True:
         messages = sqs_queue.get_messages()
         if not messages:
