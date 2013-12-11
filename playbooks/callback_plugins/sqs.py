@@ -106,7 +106,7 @@ class CallbackModule(object):
         pass
 
     def _send_queue_message(self, message):
-        delta = self.start_time - time.time()
+        delta = time.time() - self.start_time
         ts = '{:0>2.0f}:{:0>2.0f} '.format(delta / 60, delta % 60)
         if self.enable_sqs:
             self.sqs.send_message(self.queue, ts + self.prefix +
