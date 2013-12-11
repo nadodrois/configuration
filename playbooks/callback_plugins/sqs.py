@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 try:
     import boto.sqs
     from boto.exception import NoAuthHandlerFound
@@ -10,7 +11,9 @@ except ImportError:
 
 class CallbackModule(object):
     def __init__(self):
-        print "Init"
+
+        self.start_time = time.time()
+
         if 'ANSIBLE_ENABLE_SQS' in os.environ:
             self.enable_sqs = True
             if not 'SQS_REGION' in os.environ:
@@ -103,6 +106,8 @@ class CallbackModule(object):
         pass
 
     def _send_queue_message(self, message):
+        delta = self.start_time - time.time()
+        ts = '{:0>2.0f}:{:0>2.0f} '.format(delta / 60, delta % 60)
         if self.enable_sqs:
-            self.sqs.send_message(self.queue, self.prefix +
+            self.sqs.send_message(self.queue, ts + self.prefix +
                                   message.encode('utf-8'))
